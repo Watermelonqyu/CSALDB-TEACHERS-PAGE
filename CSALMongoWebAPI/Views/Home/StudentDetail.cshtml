@@ -1,7 +1,52 @@
 ﻿@using CSALMongoWebAPI.Util
+@using CSALMongo.Model
 
 @{
     ViewBag.Title = "Student " + Model.Student.UserID;
+
+    string[] lines = System.IO.File.ReadAllLines(@"C:\inetpub\wwwroot\csaldb2\Lessons.txt");
+    List<string> lessonNames = new List<string>();
+
+    foreach (string line in lines)
+    {
+        string lesson = line.Split(new char[] { ':' })[0];
+        lessonNames.Add(lesson);
+    }
+
+    Boolean modify = false;
+    
+    foreach (var turn in Model.Turns)
+    {
+        foreach (var oneturn in turn.Turns)
+        {
+            if (oneturn.LessonID.Contains("pilot"))
+            {
+                modify = true;
+                break;
+            }    
+        }
+        
+    }
+    if (modify == false)
+    {
+        lessonNames.Clear();
+        for (int i = 1; i < 35; i++)
+        {
+            lessonNames.Add("lesson" + i.ToString());
+        }
+    }
+
+    /*
+    if (Model.Class.ExperimentName != "pilot_1")
+    {
+        modify = false; ;
+        lessonNames = Model.Class.Lessons;
+    }
+    else
+    {
+        modify = true;
+    }
+     * */
 }
 
 <!-- MAIN CONTENT -->
@@ -36,10 +81,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var lesson in Model.Turns) {
+                    @foreach (var lesson in Model.Turns)
+                    {
                         string lessonID = lesson.LessonID;
                         string lessonName;
-                        if (!Model.LessonLookup.TryGetValue(lessonID, out lessonName)) {
+                        if (!Model.LessonLookup.TryGetValue(lessonID, out lessonName))
+                        {
                             lessonName = lessonID;
                         }
 
@@ -49,17 +96,19 @@
                         var userUrl = RenderHelp.URIEncode(lesson.UserID);
 
                         var lastTurnTime = lesson.LastTurnTime;
-                        if (lastTurnTime != null) {
+                        if (lastTurnTime != null)
+                        {
                             lastTurnTime = lastTurnTime.ToLocalTime();
                         }
-                        
+
                         <tr>
                             <td class="nw"><a href="~/home/lessondetails/@lessonUrl" class="lesson-link">@lessonName</a></td>
                             <td class="nw">@lastTurnTime</td>
                             <td>@lesson.Attempts</td>
                             <td>
                                 @lesson.Completions
-                                @if (lesson.LastCompleted()) {
+                                @if (lesson.LastCompleted())
+                                {
                                     <span class="glyphicon glyphicon-ok"></span>
                                 }
                             </td>
@@ -67,7 +116,7 @@
                             <td class="nw">@RenderHelp.HumanDuration(lesson.CurrentTotalTime())</td>
                             <td class="nw">@RenderHelp.HumanDuration(lesson.CurrentReadingTime())</td>
                             <td class="path-cell nw">@lesson.CurrentLessonPath()</td>
-                        </tr>                        
+                        </tr>
                     }
                 </tbody>
             </table>

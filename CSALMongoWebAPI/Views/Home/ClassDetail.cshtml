@@ -5,6 +5,28 @@
 @{
     ViewBag.Title = "Class " + Model.Class.ClassID;
     var meetingTime = Model.Class.MeetingTime;
+    string[] lines = System.IO.File.ReadAllLines(@"C:\inetpub\wwwroot\csaldb2\Lessons.txt");
+    List<string> lessonNames = new List<string>();
+    List<string> lessonActualNames = new List<string>();
+    
+    foreach (string line in lines)
+    {
+        string lesson = line.Split(new char[] {'_'})[0];
+        lessonNames.Add(lesson);
+    }
+    
+    Boolean modify = false;
+    
+    if (Model.Class.ExperimentName != "pilot_1")
+    {
+        modify = false; ;
+        lessonNames = Model.Class.Lessons;
+    }
+    else
+    {
+        modify = true;
+    }
+                    
     if (String.IsNullOrWhiteSpace(meetingTime))
     {
         meetingTime = "?";
@@ -61,97 +83,138 @@
                         </th>
                     }
                 </tr>
-
-                @foreach (var lessonID in Model.Class.Lessons)
+                @foreach (var lessonID in lessonNames)
                 {
-                    string lessonName;
-                    if (!Model.LessonNames.TryGetValue(lessonID, out lessonName))
-                    {
-                        lessonName = lessonID;
-                    }
+                        string origLessonName, lessonName = "";
 
-                    string correctDisp = "";
-
-                    Tuple<int, int> tots = Model.LessonCounts[lessonID];
-
-                    if (tots.Item1 > 0 || tots.Item2 > 0)
-                    {
-                        double all = tots.Item1 + tots.Item2;
-                        double avg = (double)tots.Item1 / all;
-                        correctDisp = avg.ToString();
-                    }
-
-
-
-                    /*
-                    // added by Qiong
-                    if (tots.Item1 > 0 || tots.Item2 > 0)
-                    {
-                        correctDisp = tots.Item1 > tots.Item2 ? tots.Item1.ToString() : tots.Item2.ToString();
-                    }
-                     * average score of all attempts
-                    */
-
-
-                    var lessonUrl = RenderHelp.URIEncode(lessonID);
-
-                    <tr>
-                        <th class="nw">
-                            <a href="~/home/lessondetails/@lessonUrl" class="lesson-link">@lessonName</a>
-                        </th>
-                        <th class="correct-cell nw">@correctDisp</th>
+                        // added by Qiong
+                        // make sure only Pilot classes change the order
                         
-                        
-                        @foreach (var userID in Model.Class.Students)
+
+                        if (!Model.LessonNames.TryGetValue(lessonID, out origLessonName))
                         {
-                            var userUrl = RenderHelp.URIEncode(userID);
-
-                            string correctRateDisp = "";
-                            double correctRate = 0.0;
-                            string showCompleted = "";
-                            int count = 0;
-                            var attempts = 0;
-
-                            var key = new Tuple<string, string>(lessonID, userID);
-                            StudentLessonActs turns = null;
-                            
-                            if (Model.LUTurns.TryGetValue(key, out turns))
+                            lessonName = lessonID;
+                        }
+                        if (modify == true)
+                        {
+                            foreach (string lessonN in lines)
                             {
-                                int start = 1;
-
-                                foreach (var turn in turns.Turns)
+                                if (lessonN.Contains(lessonID + "_"))
                                 {
-                                    if (turn.TurnID == 1)
+                                    lessonName = lessonN.Split(new char[] { '_' })[1];
+                                    break;
+                                }  
+                            }
+                        }
+                        else
+                        {
+                            lessonName = origLessonName;
+                        }
+                            
+
+                        string correctDisp = "";
+
+                        Tuple<int, int> tots = Model.LessonCounts[lessonID];
+
+                        if (tots.Item1 > 0 || tots.Item2 > 0)
+                        {
+                            double all = tots.Item1 + tots.Item2;
+                            double avg = (double)tots.Item1 / all;
+                            correctDisp = avg.ToString();
+                        }
+
+                        /*
+                        // added by Qiong
+                        if (tots.Item1 > 0 || tots.Item2 > 0)
+                        {
+                            correctDisp = tots.Item1 > tots.Item2 ? tots.Item1.ToString() : tots.Item2.ToString();
+                        }
+                         * average score of all attempts
+                        */
+
+
+                        var lessonUrl = RenderHelp.URIEncode(lessonID);
+
+                        <tr>
+                            <th class="nw">
+                                <a href="~/home/lessondetails/@lessonUrl" class="lesson-link">@lessonName</a>
+                            </th>
+                            <th class="correct-cell nw">@correctDisp</th>
+                        
+                        
+                            @foreach (var userID in Model.Class.Students)
+                            {
+                                var userUrl = RenderHelp.URIEncode(userID);
+
+                                string correctRateDisp = "";
+                                double correctRate = 0.0, max = 0.0;
+                                string showCompleted = "";
+                                Boolean completedAttempt = false;
+                                
+                                // count: how many turns of an attempt
+                                // startTurn: which is the start point of an attempt
+                                var attempts = 0;
+
+                               
+                                var key = new Tuple<string, string>(lessonID, userID);
+                                StudentLessonActs turns = null;
+                            
+                                if (Model.LUTurns.TryGetValue(key, out turns))
+                                {
+                                   
+                                    foreach (var turn in turns.Turns)
                                     {
-                                        start = count;
-                                        attempts++;
-                                        if (count - 2 > start && correctRate < turns.AdhocCorrectAnswerRate(start, count - 2, double.NaN))
+                                        if (turn.TurnID == 1)
                                         {
-                                            correctRate = turns.AdhocCorrectAnswerRate(start, count - 2, double.NaN);
+                                            attempts++;
+                                            /*
+                                            if (count - 2 > start && correctRate < turns.AdhocCorrectAnswerRate(start, count-1, double.NaN))
+                                            {
+                                                correctRate = turns.AdhocCorrectAnswerRate(start, count-1, double.NaN);
+                                                completedAttempt = turns.SequenceCompleted(start, count-1);
+                                            }
+
+                                            if (completedAttempt == true && correctRate > max)
+                                            {
+                                                max = correctRate;
+                                                showCompleted = "yes";
+                                            }
+                                            count = 0;
+                                            start = startTurn;
+                                            if (count - 2 > start && correctRate < turns.AdhocCorrectAnswerRate(start, count-1, double.NaN))
+                                            {
+                                                correctRate = turns.AdhocCorrectAnswerRate(start, count-1, double.NaN);
+                                                completedAttempt = turns.SequenceCompleted(start, count-1);
+                                            }
+                                             */
                                         }
                                     }
 
-                                    count++;
+                                    
+                                    correctRate = turns.AdhocCorrectAnswerRate(0, turns.TurnCount-1, double.NaN);
+                                    completedAttempt = turns.SequenceCompleted(0, turns.TurnCount-1);
+                                    
+                                    if (completedAttempt == true)
+                                    {
+                                        showCompleted = "yes";
+                                    }
+
+                                    if (max == 0)
+                                    {
+                                        max = correctRate;
+                                    }
+                                    
+                                    correctRateDisp = max.ToString();
+                                
+                                    //correctRateDisp = turns.CorrectAnswerRate().ToString();
+                                    
                                 }
 
-                                if (count - 2 > start && correctRate < turns.AdhocCorrectAnswerRate(start, count - 2, double.NaN))
-                                {
-                                    correctRate = turns.AdhocCorrectAnswerRate(start, count - 2, double.NaN);
-                                }
-
-                                correctRateDisp = correctRate.ToString();
-                                
-
-                                
-                                //correctRateDisp = turns.CorrectAnswerRate().ToString();
-                                showCompleted = turns.LastCompleted() ? "yes" : "";
+                                <td class="nw border1 correct-cell det-link" data-completed="@showCompleted" data-attempts= "@attempts" data-user="@userUrl" data-lesson="@lessonUrl">
+                                    @correctRateDisp
+                                </td>
                             }
-
-                            <td class="nw border1 correct-cell det-link" data-completed="@showCompleted" data-attempts= "@attempts" data-user="@userUrl" data-lesson="@lessonUrl">
-                                @correctRateDisp
-                            </td>
-                        }
-                    </tr>
+                        </tr>    
                 }
             </table>
         </div>
@@ -189,7 +252,7 @@
                         }
 
                         var scores = new List<string>();
-                        foreach (string lessonID in Model.Class.Lessons)
+                        foreach (string lessonID in lessonNames)
                         {
                             var lukey = new Tuple<string, string>(lessonID, userID);
                             string score = "0.0";
@@ -252,7 +315,7 @@
             LessonNames.Add(lessonName);
         }
     }
-    var LESSON_LIST = @Html.Raw(Json.Encode(LessonNames))
+    var LESSON_LIST = @Html.Raw(Json.Encode(LessonNames));
 </script>
 
 <script>

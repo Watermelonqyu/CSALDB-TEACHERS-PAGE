@@ -89,6 +89,8 @@ namespace CSALMongo.Model {
         /// </summary>
         public string TeacherName { get; set; }
 
+        public string ATClassID { get; set; } 
+        
         public string ExperimentName { get; set; }
 
         public bool IsATeacher(string toTest) {
@@ -374,17 +376,21 @@ namespace CSALMongo.Model {
             if (end < start)
                 return false;
 
-            for (int curr = end; end >= start; --end) {
+            for (int curr = end; curr >= start; --curr)
+            {
                 foreach (var trans in Turns[curr].Transitions) {
                     foreach (var action in trans.Actions) {
                         string agent = action.Agent;
                         string act = action.Act;
+                        string data = action.Data;
 
                         if (!String.IsNullOrWhiteSpace(agent) && !String.IsNullOrWhiteSpace(act)) {
                             if (agent.Trim().ToLower() == "system" && act.Trim().ToLower() == "end") {
                                 return true;
                             }
                         }
+
+
                     }
                 }
             }
@@ -666,6 +672,8 @@ namespace CSALMongo.Model {
             if (end < start)
                 return noAnswers;
 
+            double max = 0;
+
             int correct = 0;
             Boolean ifFinished = false, getAnswer = false, skip = false, reachAskQ = false, reachAnyQ = false;
             int incorrect = 0, attempt = 0 ;
@@ -681,14 +689,31 @@ namespace CSALMongo.Model {
                 }
 
                 var turn = Turns.ElementAt(i);
-                
-                foreach (var action in turn.Transitions[0].Actions)
+
+                // a new attempt
+                if (turn.TurnID == 1)
                 {
-                    if (action.Agent.Trim().ToLower() == "system" && action.Act.Trim().ToLower() == "end")
+                    correct = 0;
+                    incorrect = 0;
+                    ifFinished = false;
+                }
+
+                if (turn.Input == null)
+                {
+                    continue;
+                }
+
+                foreach (var trans in turn.Transitions)
+                {
+                    foreach (var action in trans.Actions)
                     {
-                        ifFinished = true;
+                        if (action.Agent.Trim().ToLower() == "system" && action.Act.Trim().ToLower() == "end")
+                        {
+                            ifFinished = true;
+                        }
                     }
                 }
+                
 
                 if (turn.LessonID.Contains("Lesson2\"") || turn.LessonID.Contains("Lesson13") || turn.LessonID.Contains("Lesson14") || turn.LessonID.Contains("Lesson27")
                     || turn.LessonID.Contains("Lesson31") || turn.LessonID.Contains("Lesson32") || turn.LessonID.Contains("Lesson33") || turn.LessonID.Contains("Lesson34"))
@@ -833,11 +858,11 @@ namespace CSALMongo.Model {
                     turn.LessonID.Contains("Lesson16") || turn.LessonID.Contains("Lesson29") || turn.LessonID.Contains("Lesson30"))
                 {
                     // correctness
-                    if (turn.Input.Event == "Correct")
+                    if (turn.Input != null && turn.Input.Event == "Correct")
                     {
                         correct++;
                     }
-                    else if (turn.Input.Event == "Incorrect")
+                    else if (turn.Input != null && turn.Input.Event == "Incorrect")
                     {
                         incorrect++;
                     }
@@ -982,33 +1007,40 @@ namespace CSALMongo.Model {
                         }
                     }
                 }
+
+                if (ifFinished == true)
+                {
+                    double tots = (double)(correct + incorrect);
+                    double score = (double)(correct / tots);
+                    if (max < score)
+                    {
+                        max = score;
+                    }
+                }
                 
                 
             }
 
-            if (correct < 1) {
-                if (incorrect < 1)
-                    return noAnswers;
-                else
-                    return 0.0;
-            }
             
             double tot = (double)(correct + incorrect);
             // no need to specify if the students finish lesson
 
             // ask if they need to show this
-            return (double)correct / tot;
-
-            /*
-            if (ifFinished == true)
+            if (max ==0)
             {
-                return (double)correct / tot;
+                if (tot > 0)
+                {
+                    return (double)(correct / tot);
+                }
+                else
+                {
+                    return 0;
+                } 
             }
             else
             {
-                return 2;
+                return max;
             }
-            */
             
         }
 
